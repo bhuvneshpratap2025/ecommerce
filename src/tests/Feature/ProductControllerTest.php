@@ -160,4 +160,28 @@ class ProductControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertJsonFragment(['status' => 'success']);
     }
+    /** @test */
+    public function can_search_products_by_name()
+    {
+        // Create some products
+        Product::factory()->create(['name' => 'Apple iPhone']);
+        Product::factory()->create(['name' => 'Samsung Galaxy']);
+        Product::factory()->create(['name' => 'Google Pixel']);
+
+        // Search query that matches "Apple iPhone"
+        $response = $this->get(route('products.search', ['query' => 'Apple']));
+
+        $response->assertStatus(200);
+        $response->assertViewHas('products');
+        $products = $response->viewData('products');
+        $this->assertTrue($products->contains('name', 'Apple iPhone'));
+        $this->assertFalse($products->contains('name', 'Samsung Galaxy'));
+        $this->assertFalse($products->contains('name', 'Google Pixel'));
+
+        // Search with JSON request
+        $responseJson = $this->getJson(route('products.search', ['query' => 'Galaxy']));
+        $responseJson->assertStatus(200);
+        $responseJson->assertJsonFragment(['name' => 'Samsung Galaxy']);
+        $responseJson->assertJsonMissing(['name' => 'Apple iPhone']);
+    }
 }

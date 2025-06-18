@@ -60,7 +60,9 @@ class Handler extends ExceptionHandler
             // Optional: for web users
             abort(403, 'You do not have permission to perform this action.');
         }
-
+        if ($exception instanceof ModelNotFoundException) {
+            \Log::error('ModelNotFoundException: ' . $exception->getMessage());
+        }
         return parent::render($request, $exception);
     }
 }
