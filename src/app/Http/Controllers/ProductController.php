@@ -13,11 +13,35 @@ use Illuminate\Support\Collection;
 class ProductController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * @OA\Get(
+     *     path="/api/products",
+     *     summary="Get list of products",
+     *     tags={"Products"},
+     *     @OA\Parameter(
+     *          name="page",
+     *          in="query",
+     *          description="Page number for pagination",
+     *          required=false,
+     *          @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="List of products",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="array",
+     *                 @OA\Items(ref="#/components/schemas/Product")
+     *             ),
+     *             @OA\Property(property="links", type="object"),
+     *             @OA\Property(property="meta", type="object")
+     *         )
+     *     )
+     * )
      */
     public function index(Request $request)
     {
-        
         if (auth()->check()) {
             $wishlist = auth()->user()->wishlistItems()->with('product')->get();
         }else{
@@ -39,6 +63,7 @@ class ProductController extends Controller
         }
     }
 
+    
     /**
      * Show the form for creating a new resource.
      */
@@ -51,13 +76,34 @@ class ProductController extends Controller
     /**
      * Store a newly created resource in storage.
      */
+    /**
+     * @OA\Post(
+     *     path="/api/products/create",
+     *     summary="Create a new product",
+     *     tags={"Products"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(ref="#/components/schemas/Product")
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Product created successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string"),
+     *             @OA\Property(property="message", type="string")
+     *         )
+     *     ),
+     *     @OA\Response(response=422, description="Validation error")
+     * )
+     */
     public function store(Request $request)
-    {  
+    { 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|min:10',
             'description' => 'required|string|min:255',
             'price' => 'required|numeric|min:0',
             'stock' => 'required|integer|min:0',
+            'category_id' => 'nullable|exists:categories,id',
         ]);
 
         if ($validator->fails()) {
@@ -91,6 +137,29 @@ class ProductController extends Controller
     /**
      * Display the specified resource.
      */
+    /**
+     * @OA\Get(
+     *     path="/api/products/{id}",
+     *     summary="Get a product by ID",
+     *     tags={"Products"},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         description="Product ID",
+     *         required=true,
+     *         @OA\Schema(type="integer", format="int64")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Product details",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string"),
+     *             @OA\Property(property="data", ref="#/components/schemas/Product")
+     *         )
+     *     ),
+     *     @OA\Response(response=404, description="Product not found")
+     * )
+     */
     public function show(Product $product)
     {
        
@@ -112,6 +181,35 @@ class ProductController extends Controller
 
     /**
      * Update the specified resource in storage.
+     */
+     /**
+     * @OA\Patch(
+     *     path="/api/products/{id}",
+     *     summary="Update a product",
+     *     tags={"Products"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         description="Product ID",
+     *         required=true,
+     *         @OA\Schema(type="integer", format="int64")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(ref="#/components/schemas/Product")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Product updated successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string"),
+     *             @OA\Property(property="message", type="string")
+     *         )
+     *     ),
+     *     @OA\Response(response=404, description="Product not found"),
+     *     @OA\Response(response=422, description="Validation error")
+     * )
      */
     public function update(Request $request, $id)
     {   
@@ -157,6 +255,30 @@ class ProductController extends Controller
     /**
      * Remove the specified resource from storage.
      */
+    /**
+     * @OA\Delete(
+     *     path="/api/products/{id}",
+     *     summary="Delete a product",
+     *     tags={"Products"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         description="Product ID",
+     *         required=true,
+     *         @OA\Schema(type="integer", format="int64")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Product deleted successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string"),
+     *             @OA\Property(property="message", type="string")
+     *         )
+     *     ),
+     *     @OA\Response(response=404, description="Product not found")
+     * )
+     */
     public function destroy(Request $request, $id){
         try {
             $product = Product::findOrFail($id);
@@ -178,14 +300,14 @@ class ProductController extends Controller
             return redirect()->route('products.index')->with('error', 'Product not found.');
         }
     }
+
     public function search(Request $request)
     {   
-        if (auth()->check()) {
+       if (auth()->check()) {
             $wishlist = auth()->user()->wishlistItems()->with('product')->get();
         }else{
             $wishlist = collect(); // always returns a Collection
         }
-        
         $products = Product::where('name', 'like', '%' . $request->query('query') . '%')->orderBy('created_at', 'desc')->paginate(10); // paginate 10 per page
         if ($request->wantsJson()) {
             return response()->json($products);
